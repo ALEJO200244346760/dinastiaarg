@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getProductos } from './services/api'
 import ProductCard from './components/ProductCard'
+import Footer from './components/Footer'
 
 function App() {
   const [productos, setProductos] = useState([])
@@ -31,6 +32,7 @@ function App() {
           ))}
         </div>
       </main>
+      <Footer />
     </div>
   )
 }
