@@ -10,7 +10,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                // Agregamos tanto el localhost para pruebas como el dominio real de Vercel
+                // Aquí listamos EXACTAMENTE los dominios que pueden entrar
                 .allowedOrigins(
                         "http://localhost:5173",
                         "https://dinastiaarg.vercel.app"
