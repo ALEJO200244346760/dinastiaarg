@@ -27,45 +27,55 @@ public class MercadoLibreService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void importarProductos(String sellerId) {
-        // 1. Configuramos los Headers con el Token
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + accessToken);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        // 2. Buscamos los productos del vendedor
-        String urlBusqueda = "https://api.mercadolibre.com/sites/MLA/search?seller_id=" + sellerId;
+        // CAMBIO CLAVE: Usamos el endpoint de items por vendedor
+        // Este endpoint devuelve solo una lista de IDs (ej: ["MLA1","MLA2"])
+        String urlIds = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
 
-        // Usamos exchange para poder mandar los headers
-        ResponseEntity<Map> responseEntity = restTemplate.exchange(
-                urlBusqueda,
-                HttpMethod.GET,
-                entity,
-                Map.class
-        );
+        try {
+            ResponseEntity<Map> responseIds = restTemplate.exchange(urlIds, HttpMethod.GET, entity, Map.class);
+            List<String> resultsIds = (List<String>) responseIds.getBody().get("results");
 
-        Map<String, Object> response = responseEntity.getBody();
-        List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("results");
+            if (resultsIds == null || resultsIds.isEmpty()) return;
 
-        for (Map<String, Object> item : results) {
-            String idMeLi = (String) item.get("id");
+            // Ahora pedimos el detalle de cada ID (limitamos a los primeros 20 para no saturar)
+            String idsJoined = String.join(",", resultsIds.subList(0, Math.min(resultsIds.size(), 20)));
+            String urlDetalle = "https://api.mercadolibre.com/items?ids=" + idsJoined;
 
-            if (productoRepository.findByMercadoLibreId(idMeLi) == null) {
-                Producto p = new Producto();
-                p.setMercadoLibreId(idMeLi);
-                p.setNombre((String) item.get("title"));
+            ResponseEntity<List> responseDetails = restTemplate.exchange(urlDetalle, HttpMethod.GET, entity, List.class);
+            List<Map<String, Object>> items = (List<Map<String, Object>>) responseDetails.getBody();
 
-                Double price = Double.valueOf(item.get("price").toString());
-                p.setPrecio(BigDecimal.valueOf(price));
+            for (Map<String, Object> container : items) {
+                // El resultado viene envuelto en un objeto con "code" y "body"
+                Map<String, Object> body = (Map<String, Object>) container.get("body");
+                if (body == null) continue;
 
-                // Imagen HD
-                String img = (String) item.get("thumbnail");
-                p.setImagenUrl(img.replace("-I.jpg", "-O.jpg"));
+                String idMeLi = (String) body.get("id");
 
-                p.setActivo(true);
-                p.setCategoria("joyas"); // Categoría por defecto
+                if (productoRepository.findByMercadoLibreId(idMeLi) == null) {
+                    Producto p = new Producto();
+                    p.setMercadoLibreId(idMeLi);
+                    p.setNombre((String) body.get("title"));
+                    p.setPrecio(new BigDecimal(body.get("price").toString()));
 
-                productoRepository.save(p);
+                    // Imagen HD (buscamos la primera foto del array de pictures)
+                    List<Map<String, Object>> pictures = (List<Map<String, Object>>) body.get("pictures");
+                    if (pictures != null && !pictures.isEmpty()) {
+                        p.setImagenUrl((String) pictures.get(0).get("url"));
+                    } else {
+                        p.setImagenUrl((String) body.get("thumbnail"));
+                    }
+
+                    p.setActivo(true);
+                    p.setCategoria("joyas");
+                    productoRepository.save(p);
+                }
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Error en MeLi: " + e.getMessage());
         }
     }
 }
