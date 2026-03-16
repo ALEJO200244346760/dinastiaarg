@@ -21,6 +21,15 @@ public class MercadoLibreService {
     @Autowired
     private ProductoRepository productoRepository;
 
+    @Value("${ML_CLIENT_ID}")
+    private String clientId;
+
+    @Value("${ML_CLIENT_SECRET}")
+    private String clientSecret;
+
+    @Value("${ML_REDIRECT_URI}")
+    private String redirectUri;
+
     @Value("${mercadopago.access.token}")
     private String accessToken;
 
