@@ -64,5 +64,15 @@ public class ProductoController {
             return ResponseEntity.status(500).body("Error al guardar: " + e.getMessage());
         }
     }
+
+    @PostMapping("/nuevo")
+    public ResponseEntity<Producto> crearProducto(@RequestBody Producto producto) {
+        producto.setActivo(true);
+        // Si no viene ID de MeLi, le inventamos uno para que no explote el repo
+        if (producto.getMercadoLibreId() == null) {
+            producto.setMercadoLibreId("MANUAL-" + System.currentTimeMillis());
+        }
+        return ResponseEntity.ok(productoRepository.save(producto));
+    }
 }
 
