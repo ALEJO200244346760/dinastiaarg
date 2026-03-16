@@ -33,11 +33,11 @@ public class ProductoController {
     @Autowired
     private MercadoLibreService mercadoLibreService;
 
-    @GetMapping("/importar/{sellerId}") // Cambiado a GetMapping
-    public String importar(@PathVariable String sellerId) {
+    @GetMapping("/importar-item/{itemId}")
+    public String importarItem(@PathVariable String itemId) {
         try {
-            mercadoLibreService.importarProductos(sellerId);
-            return "Sincronización exitosa";
+            mercadoLibreService.importarProductoPorId(itemId);
+            return "Producto " + itemId + " importado con éxito.";
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
