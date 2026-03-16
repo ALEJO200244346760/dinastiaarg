@@ -33,7 +33,7 @@ public class ProductoController {
     @Autowired
     private MercadoLibreService mercadoLibreService;
 
-    @PostMapping("/importar/{sellerId}")
+    @GetMapping("/importar/{sellerId}")
     public String importar(@PathVariable String sellerId) {
         try {
             mercadoLibreService.importarProductos(sellerId);
