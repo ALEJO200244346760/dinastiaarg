@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/productos")
-@CrossOrigin(origins = "*") // Después lo limitamos a tu URL de Vercel
 public class ProductoController {
 
     @Autowired
