@@ -1,60 +1,57 @@
 import { useState } from 'react';
 
-export default function AdminPanel() {
-  const [mostrar, setMostrar] = useState(false);
-  const [form, setForm] = useState({ nombre: '', precio: '', imagenUrl: '', descripcion: '' });
+export default function Footer() {
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const res = await fetch("https://dinastiaarg-production.up.railway.app/api/productos/nuevo", {
+  const handleSyncPro = async () => {
+  const itemId = "MLA1706534491"; // Después podés poner un input para que ella pegue el ID
+  
+  try {
+    // 1. Pedir a Mercado Libre (esto no falla porque lo hace tu navegador)
+    const resMeli = await fetch(`https://api.mercadolibre.com/items/${itemId}`);
+    const dataMeli = await resMeli.json();
+
+    if(dataMeli.error) throw new Error("No se encontró el producto en MeLi");
+
+    // 2. Preparar el paquete para nuestro backend
+    const productoParaGuardar = {
+      id: dataMeli.id,
+      title: dataMeli.title,
+      price: dataMeli.price,
+      urlImagen: dataMeli.pictures[0]?.url || dataMeli.thumbnail
+    };
+
+    // 3. Mandarlo a Railway para que lo guarde en MySQL
+    const resBack = await fetch("https://dinastiaarg-production.up.railway.app/api/productos/guardar-desde-meli", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
+      body: JSON.stringify(productoParaGuardar)
     });
 
-    if (res.ok) {
-      alert("¡Joyita cargada con éxito!");
-      window.location.reload();
-    }
-  };
+    const msj = await resBack.text();
+    alert(msj);
+    window.location.reload();
+
+  } catch (error) {
+    console.error(error);
+    alert("Error al sincronizar: " + error.message);
+  }
+    };
 
   return (
-    <div className="p-8 bg-black text-white">
-      <button onClick={() => setMostrar(!mostrar)} className="text-xs border border-white px-4 py-2 rounded-full hover:bg-white hover:text-black transition">
-        {mostrar ? "CERRAR PANEL" : "MODO ADMINISTRADORA"}
-      </button>
-
-      {mostrar && (
-        <form onSubmit={handleSubmit} className="mt-8 max-w-md mx-auto space-y-4">
-          <input 
-            placeholder="Nombre del accesorio (ej: Pulsera Blanca)" 
-            className="w-full p-2 bg-gray-900 border border-gray-700 rounded"
-            onChange={e => setForm({...form, nombre: e.target.value})}
-            required
-          />
-          <input 
-            placeholder="Precio (solo números)" 
-            type="number"
-            className="w-full p-2 bg-gray-900 border border-gray-700 rounded"
-            onChange={e => setForm({...form, precio: e.target.value})}
-            required
-          />
-          <input 
-            placeholder="Link de la imagen (podés sacarlo de MeLi)" 
-            className="w-full p-2 bg-gray-900 border border-gray-700 rounded"
-            onChange={e => setForm({...form, imagenUrl: e.target.value})}
-            required
-          />
-          <textarea 
-            placeholder="Descripción corta" 
-            className="w-full p-2 bg-gray-900 border border-gray-700 rounded"
-            onChange={e => setForm({...form, descripcion: e.target.value})}
-          />
-          <button type="submit" className="w-full bg-white text-black py-2 font-bold hover:bg-gray-200">
-            PUBLICAR EN LA WEB
-          </button>
-        </form>
-      )}
-    </div>
+    <footer className="mt-20 border-t border-gray-200 bg-white py-10">
+      <div className="text-center">
+        <p className="text-gray-400 text-sm">© 2026 DINASTÍA ARG - Joyería & Accesorios</p>
+        
+        {/* El botón "secreto" para tu mamá */}
+        <button 
+          onClick={handleSyncPro}
+          disabled={loading}
+          className="mt-6 text-[10px] uppercase tracking-widest text-gray-300 hover:text-black transition-colors"
+        >
+          {loading ? "Sincronizando..." : "Sincronizar Stock"}
+        </button>
+      </div>
+    </footer>
   );
 }
