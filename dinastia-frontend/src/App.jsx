@@ -11,6 +11,12 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Mensaje de éxito si el pago fue aprobado */}
+      {status === 'approved' && (
+        <div className="bg-green-600 text-white text-center py-4 font-bold animate-bounce">
+          ¡Gracias por tu compra en Dinastía Arg! Nos pondremos en contacto con vos.
+        </div>
+      )}
       <header className="py-10 bg-white border-b shadow-sm">
         <h1 className="text-4xl font-serif text-center font-bold tracking-widest text-black">
           DINASTÍA ARG

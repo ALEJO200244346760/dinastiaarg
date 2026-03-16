@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:8080/api";
+// Vite usa import.meta.env para las variables de entorno
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
 export const getProductos = async () => {
   const res = await fetch(`${API_URL}/productos`);
@@ -11,5 +12,5 @@ export const iniciarPago = async (producto) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(producto)
   });
-  return await res.text(); // Esto nos devuelve la URL de Mercado Pago
+  return await res.text();
 };
