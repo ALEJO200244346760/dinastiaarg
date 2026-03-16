@@ -35,12 +35,18 @@ public class MercadoLibreService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    // Sincronización automática cada 1 hora
     @Scheduled(fixedRate = 3600000)
     public void sincronizacionAutomatica() {
         System.out.println("Iniciando sincronización automática de Dinastía Arg...");
-        importarProductos("1297120798");
+        try {
+            importarProductos("1297120798");
+        } catch (Exception e) {
+            System.err.println("Error en sync automática: " + e.getMessage());
+        }
     }
 
+    // Método para el callback de OAuth2
     public void handleCallback(String code) {
         String url = "https://api.mercadolibre.com/oauth/token";
 
@@ -57,19 +63,42 @@ public class MercadoLibreService {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
         ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
-        // Acá recibís el access_token y el refresh_token
-        // IMPORTANTE: Deberías guardarlos en la base de datos para usarlos siempre
-        String accessToken = (String) response.getBody().get("access_token");
-        System.out.println("Nuevo Token: " + accessToken);
+        if (response.getBody() != null) {
+            String nuevoAccessToken = (String) response.getBody().get("access_token");
+            System.out.println("Nuevo Token obtenido: " + nuevoAccessToken);
+            // TODO: Guardar en DB para que sea permanente
+        }
     }
 
+    // ESTE ES EL MÉTODO QUE FALTABA Y DABA ERROR DE COMPILACIÓN
+    public void importarProductoPorId(String itemMeliId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + accessToken);
+        // User-Agent para evitar el bloqueo del PolicyAgent
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        String urlDetalle = "https://api.mercadolibre.com/items/" + itemMeliId;
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(urlDetalle, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = response.getBody();
+
+            if (body != null) {
+                guardarOActualizarProducto(body);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error al traer item individual: " + e.getMessage());
+        }
+    }
+
+    // Método para importar todos los productos de un vendedor
     public void importarProductos(String sellerId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + accessToken);
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        // CAMBIO CLAVE: Usamos el endpoint de items por vendedor
-        // Este endpoint devuelve solo una lista de IDs (ej: ["MLA1","MLA2"])
         String urlIds = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
 
         try {
@@ -78,7 +107,6 @@ public class MercadoLibreService {
 
             if (resultsIds == null || resultsIds.isEmpty()) return;
 
-            // Ahora pedimos el detalle de cada ID (limitamos a los primeros 20 para no saturar)
             String idsJoined = String.join(",", resultsIds.subList(0, Math.min(resultsIds.size(), 20)));
             String urlDetalle = "https://api.mercadolibre.com/items?ids=" + idsJoined;
 
@@ -86,33 +114,38 @@ public class MercadoLibreService {
             List<Map<String, Object>> items = (List<Map<String, Object>>) responseDetails.getBody();
 
             for (Map<String, Object> container : items) {
-                // El resultado viene envuelto en un objeto con "code" y "body"
                 Map<String, Object> body = (Map<String, Object>) container.get("body");
-                if (body == null) continue;
-
-                String idMeLi = (String) body.get("id");
-
-                if (productoRepository.findByMercadoLibreId(idMeLi) == null) {
-                    Producto p = new Producto();
-                    p.setMercadoLibreId(idMeLi);
-                    p.setNombre((String) body.get("title"));
-                    p.setPrecio(new BigDecimal(body.get("price").toString()));
-
-                    // Imagen HD (buscamos la primera foto del array de pictures)
-                    List<Map<String, Object>> pictures = (List<Map<String, Object>>) body.get("pictures");
-                    if (pictures != null && !pictures.isEmpty()) {
-                        p.setImagenUrl((String) pictures.get(0).get("url"));
-                    } else {
-                        p.setImagenUrl((String) body.get("thumbnail"));
-                    }
-
-                    p.setActivo(true);
-                    p.setCategoria("joyas");
-                    productoRepository.save(p);
+                if (body != null && body.get("id") != null) {
+                    guardarOActualizarProducto(body);
                 }
             }
         } catch (Exception e) {
-            throw new RuntimeException("Error en MeLi: " + e.getMessage());
+            throw new RuntimeException("Error en importación masiva: " + e.getMessage());
         }
+    }
+
+    // Función auxiliar para evitar repetir código de guardado
+    private void guardarOActualizarProducto(Map<String, Object> body) {
+        String idMeLi = (String) body.get("id");
+        Producto p = productoRepository.findByMercadoLibreId(idMeLi);
+
+        if (p == null) {
+            p = new Producto();
+            p.setMercadoLibreId(idMeLi);
+        }
+
+        p.setNombre((String) body.get("title"));
+        p.setPrecio(new BigDecimal(body.get("price").toString()));
+
+        List<Map<String, Object>> pictures = (List<Map<String, Object>>) body.get("pictures");
+        if (pictures != null && !pictures.isEmpty()) {
+            p.setImagenUrl((String) pictures.get(0).get("url"));
+        } else {
+            p.setImagenUrl((String) body.get("thumbnail"));
+        }
+
+        p.setActivo(true);
+        p.setCategoria("joyas");
+        productoRepository.save(p);
     }
 }
