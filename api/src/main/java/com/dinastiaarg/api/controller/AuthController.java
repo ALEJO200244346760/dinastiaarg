@@ -7,8 +7,9 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*") // Para que tu React pueda pegarle sin líos
+@CrossOrigin(origins = "https://dinastiaarg.vercel.app", allowCredentials = "true")
 public class AuthController {
+
 
     @Autowired
     private MercadoLibreService mercadoLibreService;

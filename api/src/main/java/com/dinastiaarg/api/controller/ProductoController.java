@@ -13,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/productos")
+@CrossOrigin(origins = "https://dinastiaarg.vercel.app", allowCredentials = "true")
 public class ProductoController {
 
     @Autowired
