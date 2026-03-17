@@ -7,22 +7,34 @@ export default function Footer() {
     if (!confirm("¿Actualizar catálogo de Dinastía Arg?")) return;
     setLoading(true);
 
+    // 1. Recuperamos el token de seguridad
+    const token = localStorage.getItem('token'); 
+
     try {
-        // LLAMADA ÚNICA A TU BACKEND
-        // Este endpoint en Java se encarga de todo: buscar IDs y guardar detalles
-        const res = await fetch("https://dinastiaarg-production.up.railway.app/api/productos/sincronizar-todo");
+        const res = await fetch("https://dinastiaarg-production.up.railway.app/api/productos/sincronizar-todo", {
+            method: "GET", // O POST, según cómo lo tengas en el Controller
+            headers: {
+                "Content-Type": "application/json",
+                // 2. Agregamos la autorización para que el backend nos deje pasar
+                "Authorization": `Bearer ${token}` 
+            }
+        });
         
+        if (res.status === 401 || res.status === 403) {
+            throw new Error("Sesión expirada. Por favor, volvé a iniciar sesión.");
+        }
+
         if (!res.ok) {
             const errorText = await res.text();
             throw new Error(errorText);
         }
 
-        alert("¡Sincronización Exitosa! Los productos ya están en la base de datos.");
+        alert("¡Sincronización Exitosa!");
         window.location.reload();
 
     } catch (error) {
         console.error(error);
-        alert("Error: El servidor de MeLi bloqueó la conexión temporalmente.");
+        alert(error.message || "Error en la sincronización.");
     } finally {
         setLoading(false);
     }
