@@ -51,10 +51,9 @@ public class ProductoController {
     @PostMapping("/guardar-desde-meli")
     public ResponseEntity<String> guardarDesdeMeli(@RequestBody Map<String, Object> data) {
         try {
-            // Verificamos si ya existe para no duplicar
             String mlId = (String) data.get("id");
+            // Buscamos si ya existe para actualizarlo o crearlo
             Producto p = productoRepository.findByMercadoLibreId(mlId);
-
             if (p == null) p = new Producto();
 
             p.setMercadoLibreId(mlId);
@@ -65,7 +64,7 @@ public class ProductoController {
             p.setCategoria("joyas");
 
             productoRepository.save(p);
-            return ResponseEntity.ok("Producto guardado en la base de datos");
+            return ResponseEntity.ok("¡Producto " + p.getNombre() + " sincronizado!");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error al guardar: " + e.getMessage());
         }

@@ -65,8 +65,15 @@ public class MercadoLibreService {
     public void importarProductos(String sellerId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + currentToken);
-        headers.set("User-Agent", "Mozilla/5.0");
+
+        // --- AGREGÁ ESTO PARA SALTAR EL POLICY AGENT ---
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+        headers.set("Accept", "application/json");
+        headers.set("Connection", "keep-alive");
+        // -----------------------------------------------
+
         HttpEntity<String> entity = new HttpEntity<>(headers);
+        String urlIds = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
 
         try {
             // Endpoint de búsqueda de items del vendedor
