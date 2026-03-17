@@ -1,39 +1,65 @@
+import React from 'react';
+
 export default function ProductCard({ producto }) {
   
+  // FUNCIÓN DE PAGO INTEGRADA (O importala si la tenés en otro archivo)
+  const iniciarPago = async (prod) => {
+    try {
+      const response = await fetch("https://dinastiaarg-production.up.railway.app/api/pagos/crear-preferencia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: prod.id,
+          titulo: prod.nombre,
+          precio: prod.precio,
+          cantidad: 1
+        }),
+      });
+      return await response.text(); // Debería devolver la URL de Mercado Pago
+    } catch (error) {
+      console.error("Error al iniciar pago:", error);
+      return "error";
+    }
+  };
+
   const handleComprar = async () => {
     const urlPago = await iniciarPago(producto);
-    if (urlPago.startsWith("http")) {
-      window.location.href = urlPago; // Redirige a Mercado Pago
+    if (urlPago && urlPago.startsWith("http")) {
+      window.location.href = urlPago;
     } else {
-      alert("Hubo un error al generar el pago");
+      alert("No se pudo conectar con Mercado Pago. Revisá el backend.");
     }
   };
 
   return (
-    <div className="max-w-sm bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      <img 
-        className="w-full h-64 object-cover" 
-        src={producto.imagenUrl} 
-        alt={producto.nombre} 
-      />
-      <div className="p-5 text-center">
-        <h5 className="mb-2 text-xl font-bold tracking-tight text-gray-900 uppercase">
+    <div className="group relative flex flex-col bg-white overflow-hidden transition-all duration-500 hover:shadow-2xl border border-gray-100 rounded-sm">
+      {/* IMAGEN: Ahora es más grande y con zoom al pasar el mouse */}
+      <div className="aspect-[4/5] overflow-hidden bg-gray-50">
+        <img 
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+          src={producto.imagenUrl} 
+          alt={producto.nombre} 
+        />
+      </div>
+
+      {/* TEXTO: Minimalista y centrado */}
+      <div className="p-6 flex flex-col items-center text-center">
+        <span className="text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-2">
+          Dinastía Arg Colección
+        </span>
+        <h3 className="text-sm font-light tracking-widest text-gray-800 uppercase min-h-[40px] px-2">
           {producto.nombre}
-        </h5>
-        <p className="mb-3 font-normal text-gray-600">
-          {producto.descripcion}
-        </p>
-        <p className="text-2xl font-extrabold text-negro-premium mb-4">
+        </h3>
+        <p className="mt-4 text-lg font-medium text-gray-900">
           ${producto.precio.toLocaleString('es-AR')}
         </p>
+
+        {/* BOTÓN: Estilo boutique (finito y elegante) */}
         <button
           onClick={handleComprar}
-          className="w-full inline-flex justify-center items-center px-6 py-3 text-sm font-bold text-white bg-black rounded-full hover:bg-gray-800 transition-colors focus:ring-4 focus:outline-none focus:ring-gray-300"
+          className="mt-6 w-full py-3 text-[10px] tracking-[0.2em] font-bold text-white bg-black hover:bg-orange-600 transition-all duration-300 rounded-none uppercase"
         >
-          COMPRAR AHORA
-          <svg className="w-3.5 h-3.5 ml-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
-            <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 5h12m0 0L9 1m4 4L9 9"/>
-          </svg>
+          ADQUIRIR PIEZA
         </button>
       </div>
     </div>
