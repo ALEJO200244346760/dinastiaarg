@@ -85,40 +85,44 @@ public class MercadoLibreService {
     }
 
     private void ejecutarImportacion() {
-        // En lugar de buscar por ID de usuario, buscamos por "MIS ITEMS"
-        // Este endpoint es el ÚNICO que garantiza que no de error 403 o 400
-        String urlSearch = "https://api.mercadolibre.com/users/me/items/search";
-
-        HttpHeaders headers = crearHeadersDisfrazados();
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
         try {
-            // LOG DE SEGURIDAD PARA VOS: Si el token está vacío, cortamos acá
             if (accessToken == null || accessToken.isEmpty()) {
-                throw new RuntimeException("ERROR: El Access Token está vacío. Entrá a /api/auth/login");
+                throw new RuntimeException("Access Token vacío. Por favor, autorizá en /api/auth/login");
             }
 
-            System.out.println("Sincronizando con token oficial...");
+            // PASO A: Preguntar quién es el dueño del token (esto devuelve el ID numérico)
+            String urlMe = "https://api.mercadolibre.com/users/me";
+            HttpHeaders headers = crearHeadersDisfrazados();
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            ResponseEntity<Map> res = restTemplate.exchange(urlSearch, HttpMethod.GET, entity, Map.class);
-            Map<String, Object> body = res.getBody();
+            System.out.println("Consultando ID del usuario autenticado...");
+            ResponseEntity<Map> responseMe = restTemplate.exchange(urlMe, HttpMethod.GET, entity, Map.class);
+
+            // Sacamos el ID real (el "integer" que nos pedía el error 400)
+            Integer realUserId = (Integer) responseMe.getBody().get("id");
+            System.out.println("ID obtenido de /users/me: " + realUserId);
+
+            // PASO B: Ahora sí, pedimos los productos con el ID que MeLi nos dio
+            String urlSearch = "https://api.mercadolibre.com/users/" + realUserId + "/items/search";
+
+            ResponseEntity<Map> resSearch = restTemplate.exchange(urlSearch, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = resSearch.getBody();
 
             if (body != null && body.containsKey("results")) {
                 @SuppressWarnings("unchecked")
                 List<String> ids = (List<String>) body.get("results");
 
                 if (ids != null && !ids.isEmpty()) {
-                    System.out.println("¡ÉXITO! Se encontraron " + ids.size() + " joyas.");
+                    System.out.println("¡Éxito! Procesando " + ids.size() + " productos.");
                     for (String id : ids) {
                         importarProductoIndividual(id);
                     }
                 } else {
-                    System.out.println("La cuenta no tiene productos activos.");
+                    System.out.println("No se encontraron productos activos para este ID.");
                 }
             }
         } catch (Exception e) {
-            // Si MeLi devuelve error, lo imprimimos tal cual para saber qué dice
-            System.err.println("DETALLE ERROR MELI: " + e.getMessage());
+            System.err.println("Error en la cadena de sincronización: " + e.getMessage());
             throw new RuntimeException("Falla en sincronización: " + e.getMessage());
         }
     }
