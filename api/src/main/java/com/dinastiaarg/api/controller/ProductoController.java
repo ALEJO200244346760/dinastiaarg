@@ -13,11 +13,15 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/productos")
-@CrossOrigin(origins = "https://dinastiaarg.vercel.app", allowCredentials = "true")
+// Usamos originPatterns para evitar el conflicto con allowCredentials
+@CrossOrigin(originPatterns = "*", allowCredentials = "true")
 public class ProductoController {
 
     @Autowired
     private ProductoRepository productoRepository;
+
+    @Autowired
+    private MercadoLibreService mercadoLibreService;
 
     @GetMapping
     public List<Producto> listarTodos() {
@@ -34,9 +38,6 @@ public class ProductoController {
         return productoRepository.save(producto);
     }
 
-    @Autowired
-    private MercadoLibreService mercadoLibreService;
-
     @GetMapping("/importar-item/{itemId}")
     public String importarItem(@PathVariable String itemId) {
         try {
@@ -46,15 +47,19 @@ public class ProductoController {
             return "Error: " + e.getMessage();
         }
     }
+
     @PostMapping("/guardar-desde-meli")
     public ResponseEntity<String> guardarDesdeMeli(@RequestBody Map<String, Object> data) {
         try {
-            Producto p = new Producto();
-            p.setMercadoLibreId((String) data.get("id"));
+            // Verificamos si ya existe para no duplicar
+            String mlId = (String) data.get("id");
+            Producto p = productoRepository.findByMercadoLibreId(mlId);
+
+            if (p == null) p = new Producto();
+
+            p.setMercadoLibreId(mlId);
             p.setNombre((String) data.get("title"));
             p.setPrecio(new BigDecimal(data.get("price").toString()));
-
-            // Sacamos la foto HD que venga del front
             p.setImagenUrl((String) data.get("urlImagen"));
             p.setActivo(true);
             p.setCategoria("joyas");
@@ -69,11 +74,9 @@ public class ProductoController {
     @PostMapping("/nuevo")
     public ResponseEntity<Producto> crearProducto(@RequestBody Producto producto) {
         producto.setActivo(true);
-        // Si no viene ID de MeLi, le inventamos uno para que no explote el repo
         if (producto.getMercadoLibreId() == null) {
             producto.setMercadoLibreId("MANUAL-" + System.currentTimeMillis());
         }
         return ResponseEntity.ok(productoRepository.save(producto));
     }
 }
-
