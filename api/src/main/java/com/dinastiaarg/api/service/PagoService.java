@@ -1,12 +1,23 @@
 package com.dinastiaarg.api.service;
 
 import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.payment.PaymentCreateRequest;
+import com.mercadopago.client.payment.PaymentPayerRequest;
 import com.mercadopago.client.preference.*;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.exceptions.MPException;
+import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.resources.payment.Payment;
 import com.mercadopago.resources.preference.Preference;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PagoService {
@@ -58,6 +69,33 @@ public class PagoService {
                 System.err.println("Causa API: " + ((com.mercadopago.exceptions.MPApiException) e).getApiResponse().getContent());
             }
             return "Error al conectar con Mercado Pago";
+        }
+    }
+    @PostMapping("/procesar-pago")
+    public String procesarPago(Map<String, Object> paymentData) {
+        try {
+            // Usamos el token que ya tenemos
+            MercadoPagoConfig.setAccessToken("APP_USR-3616307332149511-031614-1239c11e12a3e409f03790faf7d193eb-43712155");
+
+            PaymentClient client = new PaymentClient();
+
+            PaymentCreateRequest paymentCreateRequest =
+                    PaymentCreateRequest.builder()
+                            .transactionAmount(new BigDecimal(paymentData.get("transaction_amount").toString()))
+                            .token(paymentData.get("token").toString())
+                            .description(paymentData.get("description").toString())
+                            .installments(Integer.parseInt(paymentData.get("installments").toString()))
+                            .paymentMethodId(paymentData.get("payment_method_id").toString())
+                            .payer(PaymentPayerRequest.builder()
+                                    .email(paymentData.get("payer_email").toString())
+                                    .build())
+                            .build();
+
+            Payment payment = client.create(paymentCreateRequest);
+            return payment.getStatus(); // Devuelve "approved", "rejected", etc.
+        } catch (Exception e) {
+            System.err.println("Error procesando pago directo: " + e.getMessage());
+            return "error";
         }
     }
 }
