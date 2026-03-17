@@ -2,25 +2,23 @@ import React from 'react';
 
 export default function ProductCard({ producto }) {
   
-  // FUNCIÓN DE PAGO INTEGRADA (O importala si la tenés en otro archivo)
   const iniciarPago = async (prod) => {
-    try {
-      const response = await fetch("https://dinastiaarg-production.up.railway.app/api/pagos/crear-preferencia", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: prod.id,
-          titulo: prod.nombre,
-          precio: prod.precio,
-          cantidad: 1
-        }),
-      });
-      return await response.text(); // Debería devolver la URL de Mercado Pago
-    } catch (error) {
-      console.error("Error al iniciar pago:", error);
-      return "error";
-    }
-  };
+  try {
+    const response = await fetch("https://dinastiaarg-production.up.railway.app/api/pagos/crear-preferencia", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        titulo: prod.nombre,  // Antes quizás decía "nombre", ahora "titulo"
+        precio: prod.precio,  // Asegurate que sea el número pelado (ej: 5000)
+        cantidad: 1
+      }),
+    });
+    return await response.text(); 
+  } catch (error) {
+    console.error("Error:", error);
+    return null;
+  }
+};
 
   const handleComprar = async () => {
     const urlPago = await iniciarPago(producto);

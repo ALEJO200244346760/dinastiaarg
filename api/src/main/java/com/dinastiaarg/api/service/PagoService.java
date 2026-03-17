@@ -13,13 +13,14 @@ public class PagoService {
 
     public String crearPreferencia(String titulo, Double precio, Integer cantidad) {
         try {
-            // 1. Configurar tu Access Token (USÁ EL MISMO QUE USAMOS PARA MELI)
-            MercadoPagoConfig.setAccessToken("APP_USR-3616307332149511-031714-6880053916962f3a69a234327576563d-1297120798");
+            String token = "APP_USR-3616307332149511-031614-1239c11e12a3e409f03790faf7d193eb-43712155";
+            MercadoPagoConfig.setAccessToken(token.trim());
 
-            // 2. Crear el ítem de la joya
+            // 2. Crear el ítem (MeLi es exigente con el formato del precio)
             PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
+                    .id("joya-dinastia")
                     .title(titulo)
-                    .quantity(cantidad)
+                    .quantity(1) // Empecemos con 1 para probar
                     .unitPrice(new BigDecimal(precio.toString()))
                     .currencyId("ARS")
                     .build();
@@ -27,29 +28,36 @@ public class PagoService {
             List<PreferenceItemRequest> items = new ArrayList<>();
             items.add(itemRequest);
 
-            // 3. Configurar URLs de retorno (A dónde vuelve el cliente tras pagar)
+            // 3. URLs de retorno
             PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
-                    .success("https://dinastiaarg.vercel.app/pago-exitoso")
-                    .pending("https://dinastiaarg.vercel.app/pago-pendiente")
-                    .failure("https://dinastiaarg.vercel.app/pago-fallido")
+                    .success("https://dinastiaarg.vercel.app/")
+                    .pending("https://dinastiaarg.vercel.app/")
+                    .failure("https://dinastiaarg.vercel.app/")
                     .build();
 
-            // 4. Crear la preferencia
+            // 4. Crear la petición
             PreferenceClient client = new PreferenceClient();
             PreferenceRequest request = PreferenceRequest.builder()
                     .items(items)
                     .backUrls(backUrls)
-                    .autoReturn("approved") // Vuelve solo a la web si el pago es exitoso
+                    .autoReturn("approved")
+                    // Esto evita problemas con usuarios que no tienen cuenta
+                    .binaryMode(true)
                     .build();
 
+            System.out.println("Enviando preferencia a Mercado Pago para: " + titulo);
             Preference preference = client.create(request);
 
-            // 5. Retornar el Init Point (el link de la pasarela de pago)
+            // 5. Devolvemos el link de pago
             return preference.getInitPoint();
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return "Error: " + e.getMessage();
+            // Esto va a imprimir el error REAL en el log de Railway
+            System.err.println("ERROR DETALLADO DE MP: " + e.getMessage());
+            if (e instanceof com.mercadopago.exceptions.MPApiException) {
+                System.err.println("Causa API: " + ((com.mercadopago.exceptions.MPApiException) e).getApiResponse().getContent());
+            }
+            return "Error al conectar con Mercado Pago";
         }
     }
 }
