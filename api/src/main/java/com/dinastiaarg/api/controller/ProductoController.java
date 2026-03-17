@@ -79,4 +79,14 @@ public class ProductoController {
         }
         return ResponseEntity.ok(productoRepository.save(producto));
     }
+    @GetMapping("/sincronizar-todo")
+    public String sincronizarTodo() {
+        try {
+            // El ID de vendedor de tu mamá
+            mercadoLibreService.importarProductos("1297120798");
+            return "Sincronización masiva iniciada correctamente.";
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
 }
