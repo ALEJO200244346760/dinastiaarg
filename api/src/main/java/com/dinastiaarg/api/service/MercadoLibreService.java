@@ -85,7 +85,7 @@ public class MercadoLibreService {
     }
 
     private void ejecutarImportacion() {
-        // Volvemos al ID numérico que MeLi pide, pero con el Token que ya autorizamos
+        // Volvemos al ID numérico de tu mamá, que es lo que pide el error 400
         String sellerId = "1297120798";
         String urlSearch = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
 
@@ -93,8 +93,12 @@ public class MercadoLibreService {
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
-            // Log para debug (lo vas a ver en Railway logs)
-            System.out.println("Intentando sincronizar con Token: " + accessToken.substring(0, 10) + "...");
+            // Log para que veas en Railway si el token está llegando
+            if (accessToken == null || accessToken.isEmpty()) {
+                throw new RuntimeException("El Access Token está vacío. Por favor, entrá a /api/auth/login primero.");
+            }
+
+            System.out.println("Sincronizando productos del vendedor: " + sellerId);
 
             ResponseEntity<Map> res = restTemplate.exchange(urlSearch, HttpMethod.GET, entity, Map.class);
             Map<String, Object> body = res.getBody();
@@ -104,17 +108,16 @@ public class MercadoLibreService {
                 List<String> ids = (List<String>) body.get("results");
 
                 if (ids != null && !ids.isEmpty()) {
-                    System.out.println("Se encontraron " + ids.size() + " productos.");
+                    System.out.println("Se encontraron " + ids.size() + " productos para procesar.");
                     for (String id : ids) {
                         importarProductoIndividual(id);
                     }
                 } else {
-                    System.out.println("La lista de resultados está vacía.");
+                    System.out.println("No se encontraron productos activos.");
                 }
             }
         } catch (Exception e) {
-            // Si esto falla, imprimimos el error completo en el log de Railway
-            System.err.println("Falla crítica en búsqueda: " + e.getMessage());
+            System.err.println("Error en la llamada a MeLi: " + e.getMessage());
             throw new RuntimeException("Error al listar productos: " + e.getMessage());
         }
     }
