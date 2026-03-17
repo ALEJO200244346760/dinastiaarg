@@ -85,20 +85,20 @@ public class MercadoLibreService {
     }
 
     private void ejecutarImportacion() {
-        // Volvemos al ID numérico de tu mamá, que es lo que pide el error 400
-        String sellerId = "1297120798";
-        String urlSearch = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
+        // En lugar de buscar por ID de usuario, buscamos por "MIS ITEMS"
+        // Este endpoint es el ÚNICO que garantiza que no de error 403 o 400
+        String urlSearch = "https://api.mercadolibre.com/users/me/items/search";
 
         HttpHeaders headers = crearHeadersDisfrazados();
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
-            // Log para que veas en Railway si el token está llegando
+            // LOG DE SEGURIDAD PARA VOS: Si el token está vacío, cortamos acá
             if (accessToken == null || accessToken.isEmpty()) {
-                throw new RuntimeException("El Access Token está vacío. Por favor, entrá a /api/auth/login primero.");
+                throw new RuntimeException("ERROR: El Access Token está vacío. Entrá a /api/auth/login");
             }
 
-            System.out.println("Sincronizando productos del vendedor: " + sellerId);
+            System.out.println("Sincronizando con token oficial...");
 
             ResponseEntity<Map> res = restTemplate.exchange(urlSearch, HttpMethod.GET, entity, Map.class);
             Map<String, Object> body = res.getBody();
@@ -108,17 +108,18 @@ public class MercadoLibreService {
                 List<String> ids = (List<String>) body.get("results");
 
                 if (ids != null && !ids.isEmpty()) {
-                    System.out.println("Se encontraron " + ids.size() + " productos para procesar.");
+                    System.out.println("¡ÉXITO! Se encontraron " + ids.size() + " joyas.");
                     for (String id : ids) {
                         importarProductoIndividual(id);
                     }
                 } else {
-                    System.out.println("No se encontraron productos activos.");
+                    System.out.println("La cuenta no tiene productos activos.");
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error en la llamada a MeLi: " + e.getMessage());
-            throw new RuntimeException("Error al listar productos: " + e.getMessage());
+            // Si MeLi devuelve error, lo imprimimos tal cual para saber qué dice
+            System.err.println("DETALLE ERROR MELI: " + e.getMessage());
+            throw new RuntimeException("Falla en sincronización: " + e.getMessage());
         }
     }
 
