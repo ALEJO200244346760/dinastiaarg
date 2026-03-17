@@ -5,6 +5,8 @@ import com.dinastiaarg.api.repository.ProductoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.util.List;
@@ -18,37 +20,86 @@ public class MercadoLibreService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // Este es tu token real de la App
-    private final String currentToken = "APP_USR-3616307332149511-031614-1239c11e12a3e409f03790faf7d193eb-43712155";
+    // Credenciales de tu App
+    private final String clientId = "3616307332149511";
+    private final String clientSecret = "6Q2aMPBwjDKCu4B0lrgizD2Cb26QpHp1";
+    private final String redirectUri = "https://dinastiaarg-production.up.railway.app/api/auth/callback";
 
-    // Método para sincronizar TODO el stock de tu mamá
-    public void importarTodoElStock(String sellerId) {
-        HttpHeaders headers = crearHeadersDisfrazados();
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+    private String accessToken = "";
+    private String refreshToken = "";
+
+    // 1. Intercambio de CODE por TOKEN (Solo se hace una vez al autorizar)
+    public String intercambiarCodePorToken(String code) {
+        return solicitarToken("authorization_code", "code", code);
+    }
+
+    // 2. RENOVACIÓN AUTOMÁTICA (Se llama si el token falla o vence)
+    public void renovarToken() {
+        if (refreshToken.isEmpty()) throw new RuntimeException("No hay refresh token guardado");
+        solicitarToken("refresh_token", "refresh_token", refreshToken);
+    }
+
+    private String solicitarToken(String grantType, String paramName, String value) {
+        String url = "https://api.mercadolibre.com/oauth/token";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+        map.add("grant_type", grantType);
+        map.add("client_id", clientId);
+        map.add("client_secret", clientSecret);
+        map.add(paramName, value);
+        map.add("redirect_uri", redirectUri);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
         try {
-            // 1. Obtener los IDs de los productos del vendedor
-            String urlSearch = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
-            ResponseEntity<Map> res = restTemplate.exchange(urlSearch, HttpMethod.GET, entity, Map.class);
-
-            @SuppressWarnings("unchecked")
-            List<String> ids = (List<String>) res.getBody().get("results");
-
-            if (ids == null || ids.isEmpty()) return;
-
-            // 2. Por cada ID, traer el detalle y guardar
-            for (String id : ids) {
-                importarProductoIndividual(id);
-            }
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
+            this.accessToken = (String) body.get("access_token");
+            this.refreshToken = (String) body.get("refresh_token");
+            return this.accessToken;
         } catch (Exception e) {
-            throw new RuntimeException("Falla en búsqueda masiva: " + e.getMessage());
+            throw new RuntimeException("Error en OAuth: " + e.getMessage());
         }
     }
 
-    // Método para traer un producto puntual (o actualizar uno existente)
+    // 3. IMPORTACIÓN CON RE-INTENTO (Si da 401/403, renueva el token solo)
+    public void importarTodoElStock(String sellerId) {
+        try {
+            ejecutarImportacion(sellerId);
+        } catch (Exception e) {
+            if (e.getMessage().contains("401") || e.getMessage().contains("403")) {
+                renovarToken();
+                ejecutarImportacion(sellerId);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    private void ejecutarImportacion(String sellerId) {
+        String url = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + accessToken);
+        headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ResponseEntity<Map> res = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+
+        @SuppressWarnings("unchecked")
+        List<String> ids = (List<String>) res.getBody().get("results");
+        if (ids != null) {
+            for (String id : ids) {
+                importarProductoIndividual(id);
+            }
+        }
+    }
+
     public void importarProductoIndividual(String itemId) {
         String url = "https://api.mercadolibre.com/items/" + itemId;
-        HttpHeaders headers = crearHeadersDisfrazados();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + accessToken);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
@@ -59,40 +110,23 @@ public class MercadoLibreService {
                 guardarOActualizarProducto(body);
             }
         } catch (Exception e) {
-            System.err.println("No se pudo traer el item " + itemId + ": " + e.getMessage());
+            System.err.println("Error item " + itemId + ": " + e.getMessage());
         }
-    }
-
-    // El "disfraz" oficial de Chrome para que el PolicyAgent no te bloquee
-    private HttpHeaders crearHeadersDisfrazados() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + currentToken);
-        headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
-        headers.set("Accept", "application/json");
-        return headers;
     }
 
     private void guardarOActualizarProducto(Map<String, Object> body) {
         String mlId = (String) body.get("id");
         Producto p = productoRepository.findByMercadoLibreId(mlId);
-
         if (p == null) {
             p = new Producto();
             p.setMercadoLibreId(mlId);
         }
-
         p.setNombre((String) body.get("title"));
         p.setPrecio(new BigDecimal(body.get("price").toString()));
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> pics = (List<Map<String, Object>>) body.get("pictures");
-
-        if (pics != null && !pics.isEmpty()) {
-            // Buscamos la imagen de mejor calidad (HD)
-            p.setImagenUrl((String) pics.get(0).get("url"));
-        } else {
-            p.setImagenUrl((String) body.get("thumbnail"));
-        }
+        p.setImagenUrl(pics != null && !pics.isEmpty() ? (String) pics.get(0).get("url") : (String) body.get("thumbnail"));
 
         p.setActivo(true);
         p.setCategoria("joyas");
