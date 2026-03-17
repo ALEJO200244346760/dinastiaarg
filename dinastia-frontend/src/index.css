@@ -1,0 +1,16 @@
+/* index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: #ffffff;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Quitamos el límite de 1126px que rompe el diseño */
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
