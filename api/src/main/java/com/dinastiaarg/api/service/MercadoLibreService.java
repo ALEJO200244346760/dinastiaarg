@@ -85,13 +85,17 @@ public class MercadoLibreService {
     }
 
     private void ejecutarImportacion() {
-        // CAMBIO CLAVE: Usamos /users/me para que MeLi sepa que es el dueño del token buscando sus productos
-        String urlSearch = "https://api.mercadolibre.com/users/me/items/search";
+        // Volvemos al ID numérico que MeLi pide, pero con el Token que ya autorizamos
+        String sellerId = "1297120798";
+        String urlSearch = "https://api.mercadolibre.com/users/" + sellerId + "/items/search";
 
         HttpHeaders headers = crearHeadersDisfrazados();
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
+            // Log para debug (lo vas a ver en Railway logs)
+            System.out.println("Intentando sincronizar con Token: " + accessToken.substring(0, 10) + "...");
+
             ResponseEntity<Map> res = restTemplate.exchange(urlSearch, HttpMethod.GET, entity, Map.class);
             Map<String, Object> body = res.getBody();
 
@@ -99,14 +103,19 @@ public class MercadoLibreService {
                 @SuppressWarnings("unchecked")
                 List<String> ids = (List<String>) body.get("results");
 
-                if (ids != null) {
+                if (ids != null && !ids.isEmpty()) {
+                    System.out.println("Se encontraron " + ids.size() + " productos.");
                     for (String id : ids) {
                         importarProductoIndividual(id);
                     }
+                } else {
+                    System.out.println("La lista de resultados está vacía.");
                 }
             }
         } catch (Exception e) {
-            throw new RuntimeException("Error al listar productos 'me': " + e.getMessage());
+            // Si esto falla, imprimimos el error completo en el log de Railway
+            System.err.println("Falla crítica en búsqueda: " + e.getMessage());
+            throw new RuntimeException("Error al listar productos: " + e.getMessage());
         }
     }
 
