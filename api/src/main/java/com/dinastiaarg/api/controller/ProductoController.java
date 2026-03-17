@@ -38,54 +38,15 @@ public class ProductoController {
         return productoRepository.save(producto);
     }
 
-    @GetMapping("/importar-item/{itemId}")
-    public String importarItem(@PathVariable String itemId) {
-        try {
-            mercadoLibreService.importarProductoPorId(itemId);
-            return "Producto " + itemId + " importado con éxito.";
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
-        }
-    }
-
-    @PostMapping("/guardar-desde-meli")
-    public ResponseEntity<String> guardarDesdeMeli(@RequestBody Map<String, Object> data) {
-        try {
-            String mlId = (String) data.get("id");
-            // Buscamos si ya existe para actualizarlo o crearlo
-            Producto p = productoRepository.findByMercadoLibreId(mlId);
-            if (p == null) p = new Producto();
-
-            p.setMercadoLibreId(mlId);
-            p.setNombre((String) data.get("title"));
-            p.setPrecio(new BigDecimal(data.get("price").toString()));
-            p.setImagenUrl((String) data.get("urlImagen"));
-            p.setActivo(true);
-            p.setCategoria("joyas");
-
-            productoRepository.save(p);
-            return ResponseEntity.ok("¡Producto " + p.getNombre() + " sincronizado!");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error al guardar: " + e.getMessage());
-        }
-    }
-
-    @PostMapping("/nuevo")
-    public ResponseEntity<Producto> crearProducto(@RequestBody Producto producto) {
-        producto.setActivo(true);
-        if (producto.getMercadoLibreId() == null) {
-            producto.setMercadoLibreId("MANUAL-" + System.currentTimeMillis());
-        }
-        return ResponseEntity.ok(productoRepository.save(producto));
-    }
     @GetMapping("/sincronizar-todo")
-    public String sincronizarTodo() {
+    public ResponseEntity<String> sincronizarTodo() {
         try {
-            // El ID de vendedor de tu mamá
-            mercadoLibreService.importarProductos("1297120798");
-            return "Sincronización masiva iniciada correctamente.";
+            // Llamamos al método nuevo del service
+            mercadoLibreService.importarTodoElStock("1297120798");
+            return ResponseEntity.ok("Stock de Dinastía Arg actualizado correctamente.");
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            // Si sale 403, acá lo vamos a ver en el alert del front
+            return ResponseEntity.status(500).body("Error de sincronización: " + e.getMessage());
         }
     }
 }
