@@ -80,4 +80,24 @@ public class MercadoLibreService {
         p.setCategoria("joyas");
         productoRepository.save(p);
     }
+    public void importarProductoIndividual(String itemId) {
+        String url = "https://api.mercadolibre.com/items/" + itemId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer APP_USR-3616307332149511-031614-1239c11e12a3e409f03790faf7d193eb-43712155");
+        // Usamos exactamente el User-Agent de tu Mac que pasaste recién
+        headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
+        headers.set("Accept", "application/json");
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            if (response.getBody() != null) {
+                guardarOActualizarProducto(response.getBody());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error al traer ítem de MeLi: " + e.getMessage());
+        }
+    }
 }

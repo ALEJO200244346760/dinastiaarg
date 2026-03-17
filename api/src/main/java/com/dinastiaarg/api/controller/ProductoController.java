@@ -62,4 +62,13 @@ public class ProductoController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
+    @GetMapping("/importar-item/{itemId}")
+    public ResponseEntity<String> importarItem(@PathVariable String itemId) {
+        try {
+            mercadoLibreService.importarProductoIndividual(itemId);
+            return ResponseEntity.ok("Sincronizado");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
 }
